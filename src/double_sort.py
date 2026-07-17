@@ -9,9 +9,7 @@ sortvar2 (X2) are each computed MARGINALLY — independently of one another
 — then portfolios are formed as the nP1 x nP2 intersection of the two
 groupings. Output includes the main grid, the X1 diff/avg (per X2 group),
 the X2 diff/avg (per X1 group), and the four corner combinations
-(Diff x Diff, Diff x Avg, Avg x Diff, Avg x Avg) — matching Table 5.12
-("Average Value for the Difference in Difference Portfolio") extended
-with the analogous "average of averages" cells.
+(Diff x Diff, Diff x Avg, Avg x Diff, Avg x Avg).
 
 DEPENDENT (dependent_sort=True): sortvar1 (X1) is the CONTROL variable —
 argument order matters. X1 breakpoints are computed first (marginally),
@@ -19,7 +17,7 @@ then X2 breakpoints are computed SEPARATELY WITHIN EACH X1 group
 (conditional breakpoints). Because dependent-sort is only designed to
 assess the X2-Y relation after controlling for X1, only the main grid,
 the X2 diff, and the X2 avg (each per X1 group) are computed — no X1
-diff/avg, no corner cells (matching the source text).
+diff/avg, no corner cells.
 
 Parameters:
     inputsortvar, inputvar, ff3factor, begdate, enddate, var, J, K, lag,
@@ -45,8 +43,7 @@ Parameters:
 
     Breakpoint universe: only entities with BOTH sortvar1 and sortvar2
     non-missing (and satisfying breakpoint_mask, if given) are used to
-    COMPUTE breakpoints for either variable, matching the source text's
-    requirement for bivariate sorts. Breakpoints are still APPLIED to
+    COMPUTE breakpoints for either variable. Breakpoints are still APPLIED to
     every row regardless.
 
     As in single_sort, breakpoint ranges are INCLUSIVE on both sides —
@@ -55,18 +52,18 @@ Parameters:
 
 Output:
     A WIDE DataFrame, one block of rows per (subperiod, weight_type),
-    concatenated vertically, mirroring Table 5.14's layout:
+    concatenated vertically:
         subperiod, weight_type, {port2_name}, Coefficient,
         {port1_name} 1, ..., {port1_name} numPort1,
         [{port1_name} Diff, {port1_name} Avg]   (independent-sort only)
     Each (port2 group, Coefficient) pair occupies TWO rows: the
     estimate, then the Newey-West t-stat (in parentheses) directly
-    below with a blank Coefficient label — matching single_sort's and
-    Table 5.14's display convention. Rows run through port2 groups
+    below with a blank Coefficient label. Rows run through port2 groups
     1..numPort2, then 'Diff' (high-low), then 'Avg' (average of
     averages).
 
 Example:
+    kospi_mask = indepvar['histexch'] == kospi_code   # True for KOSPI rows, False for KOSDAQ
     result = double_sort(
         inputsortvar = indepvar,
         inputvar     = tmp1,
@@ -118,8 +115,7 @@ def double_sort(inputsortvar, inputvar, ff3factor, begdate, enddate,
     # ------------------------------------------------------------
     # Bivariate breakpoint universe: BOTH sort variables (and
     # breakpoint_mask, if given) must be valid to use an entity for
-    # computing breakpoints on EITHER variable — matching the source
-    # text's requirement. Stored as a COLUMN (not a free-standing
+    # computing breakpoints on EITHER variable. Stored as a COLUMN (not a free-standing
     # Series) so it survives the row expansion from tie-inclusive
     # breakpoint assignment below without needing to be re-aligned to
     # a fresh post-concat index later (a Series.reindex against an
@@ -282,9 +278,7 @@ def double_sort(inputsortvar, inputvar, ff3factor, begdate, enddate,
     p2_labels = [str(i) for i in range(1, numPort2 + 1)]
 
     # -------------------------------------------------------
-    # Step 7: Diff and Avg cells — extends Table 5.12 with the
-    # "average of averages" cells shown in Table 5.14 ('X Avg' rows/
-    # columns) plus the four corner combinations of Diff/Avg.
+    # Step 7: Diff and Avg cells
     #   X2 diff/avg (row-level: high-low / mean across port2, per
     #     port1) — computed for BOTH independent and dependent sort,
     #     since this is the "assess X2 vs Y controlling for X1" result
@@ -423,7 +417,7 @@ def double_sort(inputsortvar, inputvar, ff3factor, begdate, enddate,
                     est_lookup[(sp, wt, model_name, 'alpha', p1, p2)] = format_param(*res['alpha'])
 
     # -------------------------------------------------------
-    # Step 10: assemble the WIDE table (Table 5.14 layout). port1
+    # Step 10: assemble the WIDE table. port1
     # columns include Diff/Avg only for independent-sort; port2 rows
     # always include Diff/Avg (X2 diff/avg apply in both modes).
     #
