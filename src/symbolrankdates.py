@@ -83,7 +83,7 @@ def symbolrankdates(inputds, startdate, enddate, period='month', rolling_freq=1,
         elif period == 'day':
             return date + pd.DateOffset(days=n)
 
-    # Step 1: rolling window definitions — unchanged.
+    # Step 1: Generate rolling estimation end dates (rankdates) — unchanged.
     rankdates = []
     rankdate  = add_period(startdate, -1, snap='end')
     i         = 0
@@ -96,7 +96,7 @@ def symbolrankdates(inputds, startdate, enddate, period='month', rolling_freq=1,
     estdates = pd.DataFrame(rankdates)
     estdates = estdates[estdates['rankdate'] > startdate].reset_index(drop=True)
 
-    # Step 2: unique trading dates — unchanged.
+    # Step 2: Get unique trading dates within sample period — unchanged.
     trading_dates = inputds[[date_col]].drop_duplicates()
     trading_dates = trading_dates[
         (trading_dates[date_col] >= startdate) &
