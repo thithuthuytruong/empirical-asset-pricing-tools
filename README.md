@@ -11,7 +11,7 @@ Python.
 | File | What it does |
 |---|---|
 | `src/single_sort.py` | Univariate portfolio sort: EW/VW returns, long-short portfolio, CAPM/FF/FFC alphas, Newey-West t-stats. Inclusive-both-sides breakpoint handling for ties. |
-| `src/double_sort.py` | Bivariate portfolio sort — independent or dependent, controlled by one parameter. Outputs the standard grid + Diff/Avg rows and columns (Table 5.12/5.14-style layout). |
+| `src/double_sort.py` | Bivariate portfolio sort — independent or dependent, controlled by one parameter. Outputs the standard grid + Diff/Avg rows and columns. |
 | `src/fama_macbeth.py` | Two-step Fama-MacBeth regression across multiple specifications side by side, with Newey-West-adjusted t-stats and subsample (subperiod) support. |
 | `src/make_fm_panel.py` | Builds a Fama-MacBeth-ready panel from daily returns + characteristics at any frequency (monthly, annual, irregular per-entity). |
 | `src/panel_helpers.py` | `make_sure_continuous_dates`, `lookahead_expand` — small utilities for gap-safe panel construction. |
