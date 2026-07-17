@@ -1,6 +1,6 @@
 """
 Single_sort: Single-sort portfolio analysis with equal-weighted and value-weighted returns,
-long-short portfolio, and risk-adjusted alphas (CAPM and FF3).
+long-short portfolio, and risk-adjusted alphas (CAPM, FF3, FFC).
 
 Parameters:
     inputsortvar : DataFrame — REQUIRED columns: (date, symbol, sortvar,
@@ -41,22 +41,17 @@ Parameters:
     enddate      : str — end date (e.g. '2020-12-31')
     numPort      : int — number of portfolios (e.g. 5 or 10)
     sortvar      : str — variable used to sort symbols into portfolios
-    var          : str — variable to compute portfolio-level statistics
-                   for. Can be a return (e.g. 'exret', 'ret') or a
-                   non-return variable (e.g. a characteristic or risk
-                   measure) — see var_is_return below.
-                   
-                   If var_is_return=True: var is COMPOUNDED across
-                   observations within each holding period via log-
-                   compounding, and MUST already be on a percent scale
-                   (1.5 = 1.5%) — verify inputvar[var].describe() yourself
-                   before calling this function. This function does NOT
-                   rescale var.
-
-                   If var_is_return=False: var is AVERAGED (equal-weighted
-                   mean) across observations within each holding period,
-                   with no scale assumption — compounding a non-return
-                   variable would not be economically meaningful.
+    var          : str — variable to compute portfolio-level statistics for.
+                   Daily observations are first collapsed to one value per
+                   (symbol, form_date, port_{sortvar}, calendar month) — so
+                   a K>1 holding period still yields one observation per
+                   month per cohort, not one per whole holding period.
+                   How that collapse happens depends on var_is_return:
+                   compounded (log-compounding) if True, averaged
+                   (equal-weighted mean) if False. If True, var MUST
+                   already be on a percent scale (1.5 = 1.5%) — verify
+                   inputvar[var].describe() yourself; this function does
+                   NOT rescale var.
     J            : int — months to wait after portfolio formation
     K            : int — holding period length in months
     lag          : int — number of lags for Newey-West t-statistics (default: 6)
@@ -68,20 +63,11 @@ Parameters:
                        row regardless. If None, all rows are used to compute breakpoints.
                        If breakpoints should be computed on a subset, follow this code:
                        kospi_mask = inputsortvar['histexch'] == kospi_code
-    var_is_return : bool (default: True) — True if `var` is a return series that should be
-                    COMPOUNDED across multiple observations within a holding
-                    period (e.g. 'exret', 'ret'). If False, `var` is treated
-                    as a non-return variable (e.g. a characteristic or level)
-                    and is instead AVERAGED (equal-weighted mean) across
-                    observations within the holding period — compounding
-                    would not make economic sense for a non-return variable.
-
-    NOTE: 'weight' is NOT a function parameter — it must already exist as
-    a column literally named 'weight' inside inputsortvar (see above). An
-    earlier version of this signature also accepted a `weight` positional
-    argument, but it was dead code (never referenced in the body) and made
-    the function's own example call above invalid, since that example never
-    passes it. It has been removed.
+    var_is_return : bool (default: True) — set True for return series like
+                    'exret'/'ret' (compounded), False for characteristics
+                    or levels (averaged) — compounding a non-return
+                    variable wouldn't be economically meaningful. See var
+                    above for the mechanics.
 
 Output:
     DataFrame with columns:
@@ -141,30 +127,16 @@ def single_sort(inputsortvar, inputvar, ff3factor, begdate, enddate,
     # Breakpoints may be computed on a SUBSET (breakpoint_mask), then
     # applied to the FULL universe — matching the Fama-French convention.
     #
-    # WHY INCLUSIVE ON BOTH SIDES:
-    # If portfolio ranges were exclusive on one side (the more typical
-    # convention), a run of TIED breakpoints (e.g. the 30th and 40th
-    # percentile of the sort variable both equal to 0 in a given period)
-    # would create an EMPTY portfolio — no entity could ever satisfy
-    # "> 0 and <= 0". An empty portfolio breaks downstream return
-    # calculations entirely (no observations to average/weight).
+    # Both-sides-inclusive avoids empty portfolios when breakpoints tie
+    # (e.g. 30th and 40th pct both = 0, which would leave no entity
+    # satisfying "> 0 and <= 0"). Tradeoff: an entity landing exactly on
+    # a breakpoint qualifies for TWO adjacent portfolios and appears as
+    # TWO ROWS below — preferred over a zero-entity portfolio.
     #
-    # To avoid this, every portfolio's range includes BOTH its lower
-    # and upper breakpoint. The unavoidable side effect: an entity
-    # whose sort value lands EXACTLY ON a breakpoint qualifies for TWO
-    # adjacent portfolios simultaneously, and will appear as TWO ROWS
-    # in the output below (one per qualifying portfolio) rather than one.
-    #
-    # This double-counting is considered the lesser problem compared to
-    # a portfolio having zero entities.
-    #
-    # CRITICAL — DOWNSTREAM REQUIREMENT:
-    # Because of this, every later step that groups, merges, or
-    # deduplicates by (symbol, form_date) MUST ALSO include
-    # port_{sortvar} in that key. Omitting it will silently collapse a
-    # tied entity's two legitimate portfolio rows back down to one,
-    # incorrectly dropping it from one of the two portfolios it
-    # actually belongs in — with no error raised.
+    # CRITICAL: because of this, every later groupby/merge/dedup keyed on
+    # (symbol, form_date) MUST also include port_{sortvar}, or a tied
+    # entity's two legitimate rows silently collapse into one, dropping
+    # it from one of its two portfolios with no error raised.
     # -------------------------------------------------------
     df = inputsortvar[inputsortvar['subperiod'].notna()].copy()
     df = df.sort_values(['subperiod', date_col, groupby])
@@ -192,12 +164,9 @@ def single_sort(inputsortvar, inputvar, ff3factor, begdate, enddate,
     upper_bounds = [df[c] for c in bp_cols] + [np.inf]
 
     # ------------------------------------------------------------
-    # Diagnostic: confirm no unexpected sortvar/breakpoint missingness
-    # is silently excluding entire (subperiod, date) groups from every
-    # portfolio. The mask logic above already handles NaN correctly
-    # (NaN comparisons are always False), but this check surfaces
-    # WHETHER that's happening, since silent full-date exclusion
-    # would otherwise go unnoticed.
+    # Diagnostic: NaN comparisons are always False, so missing sortvar
+    # or breakpoint values silently exclude entities/dates from every
+    # portfolio. This surfaces whether that's happening.
     # ------------------------------------------------------------
     dates_with_missing_breakpoints = breaks[breaks[bp_cols].isna().any(axis=1)]
     print(len(dates_with_missing_breakpoints), 'dates with at least one missing breakpoint')
@@ -295,12 +264,10 @@ def single_sort(inputsortvar, inputvar, ff3factor, begdate, enddate,
     )
 
     # -------------------------------------------------------
-    # Collapse multiple observations within each holding period
-    # down to ONE value per (symbol, calendar month), before EW/VW
-    # averaging. The correct way to collapse depends on whether
-    # `var` is a return (compound it) or some other variable
-    # (average it) — compounding a non-return variable would be
-    # economically meaningless.
+    # Collapse multiple daily observations down to ONE value per
+    # (symbol, form_date, port_{sortvar}, calendar month), before
+    # EW/VW averaging. Compound if var is a return, average otherwise —
+    # compounding a non-return variable would be economically meaningless.
     # -------------------------------------------------------
     merged['_ym'] = merged[date_col].dt.year * 100 + merged[date_col].dt.month  # fast integer grouping key
 
@@ -317,9 +284,9 @@ def single_sort(inputsortvar, inputvar, ff3factor, begdate, enddate,
     else:
         merged[var] = grp[var].transform('mean')
 
-    # explicitly select the LAST trading date's row to represent each
-    # calendar month, and ensures date_col aligns
-    # correctly with ff3factor's month-end dates for the later merge.
+    # Represent each calendar month by its last trading day's row, then
+    # snap date_col to month-end below so it aligns with ff3factor's
+    # month-end convention for the later merge.
     merged['_last_date'] = grp[date_col].transform('max')
     merged = merged[merged[date_col] == merged['_last_date']].copy()
     merged = merged.drop(columns=['_last_date'])
@@ -339,9 +306,10 @@ def single_sort(inputsortvar, inputvar, ff3factor, begdate, enddate,
     ew['weight_type'] = 'EW'
 
     # ------------------------------------------------------------
-    # VW average must sum W only over entities where BOTH Weight and
-    # 'var' are available — not just skip NaN in the numerator while
-    # still including that entity's weight in the denominator.
+    # VW average must sum weight only over entities where BOTH weight
+    # and var are non-missing for that period — not just skip NaN in
+    # the numerator while still including that entity's weight in
+    # the denominator.
     # ------------------------------------------------------------
     valid_vw = merged[merged[var].notna() & merged['weight'].notna()].copy()
     valid_vw['_w_ret'] = valid_vw[var] * valid_vw['weight']
@@ -437,13 +405,6 @@ def single_sort(inputsortvar, inputvar, ff3factor, begdate, enddate,
     # A model is AUTOMATICALLY SKIPPED if any of its listed factor
     # columns aren't present in ewdat (e.g. drop 'FFC' entirely if
     # 'UMD' was never merged into ff3factor — no code change needed).
-    #
-    # NOTE: the momentum column is named 'UMD' throughout this module,
-    # matching the ff3factor docstring above ("must contain date, rmrf,
-    # SMB, HML, UMD"). It was previously misspelled 'MOM' here, which
-    # meant the FFC model's required-columns check never matched
-    # ff3factor's actual columns and FFC was silently dropped from
-    # every result, even when momentum data was supplied correctly.
     # -------------------------------------------------------
     factor_models = {
         'CAPM': ['rmrf'],
