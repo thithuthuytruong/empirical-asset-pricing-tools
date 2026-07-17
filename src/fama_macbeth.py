@@ -4,8 +4,8 @@ fama_macbeth: Fama and MacBeth (1973) two-step cross-sectional regression.
 STEP 1 (cross-sectional): for each date_col period t, run an OLS
 regression of y on the independent variables of that specification
 (with an intercept), using only that period's cross-section of
-entities. This produces a time series of coefficients — an intercept
-delta_0,t and a slope delta_k,t for each independent variable — along
+entities. This produces a time series of coefficients — an intercept 
+and a slope for each independent variable — along
 with that period's R-squared, adjusted R-squared, and n.
 
 STEP 2 (time-series): average each coefficient (and R2/Adj.R2/n) across
@@ -15,8 +15,7 @@ its standard error is estimated with a Newey-West (1987) HAC correction
 plain time-series standard error, since periodic FM coefficients are
 often autocorrelated.
 
-Multiple specifications (e.g. Table 6.3's univariate columns (1)-(3)
-and multivariate column (4)) are run independently — a period's
+Multiple specifications are run independently — a period's
 regression for one specification does not see the others' variables —
 and assembled side by side into one wide table.
 
@@ -31,15 +30,14 @@ your sample, set every row to the same constant value before calling:
 Rows with a MISSING (NaN) 'subperiod' are DROPPED before any further
 processing.
 
-NOTE ON WINSORIZATION: per the source text, independent variables (and
-sometimes the dependent variable, EXCEPT when it's a security return)
-are usually winsorized before this procedure. That is NOT done here —
-winsorize your columns in `data` before calling this function.
+NOTE ON WINSORIZATION: independent variables (and sometimes the dependent variable, 
+EXCEPT when it's a security return) are usually winsorized before this procedure. 
+That is NOT done here — winsorize your columns in `data` before calling this function.
 
-NOTE ON REGRESSION TYPE: step 1 here is always OLS. The text notes WLS,
-logistic, probit, or multinomial models are equally valid substitutes
-for step 1 in principle — swapping those in would require editing the
-per-period regression call below; this implementation only covers OLS.
+NOTE ON REGRESSION TYPE: step 1 here is always OLS. WLS, logistic, probit, 
+or multinomial models are equally valid substitutes for step 1 in principle 
+— swapping those in would require editing the per-period regression call below; 
+this implementation only covers OLS.
 
 Parameters:
     data       : DataFrame — must contain date_col, y, 'subperiod', and
@@ -48,13 +46,11 @@ Parameters:
     specs      : list of lists of str — one inner list per
                  specification/column, each naming the independent
                  variable(s) for that column's per-period regression.
-                 E.g. [['beta'], ['size'], ['bm'], ['beta','size','bm']]
-                 reproduces Table 6.3's columns (1)-(4).
+                 E.g. [['beta'], ['size'], ['bm'], ['beta','size','bm']].
     spec_labels : list of str (default: None) — column labels, e.g.
                  ['(1)','(2)','(3)','(4)']. Defaults to '1','2',...
     date_col   : str — column used to group periods (default: 'date').
-    lag        : int — Newey-West lag count for step 2 (default: 6,
-                 matching Table 6.3's six lags).
+    lag        : int — Newey-West lag count for step 2 (default: 6).
     min_obs    : int (default: None) — minimum non-missing observations
                  required to run a given period's regression for a
                  given spec. Defaults to len(xvars) + 2 (minimum
@@ -74,22 +70,17 @@ Output:
         - one (estimate, t-stat) row-pair per variable that appears in
           ANY spec, in first-seen order — 'Intercept' always first.
           A spec that doesn't include a given variable leaves that
-          cell blank, matching Table 6.3's blank cells. Estimates are
-          starred by p-value (***/**/* at 1%/5%/10%), matching
-          single_sort's/double_sort's display convention; t-stats sit
-          directly below in parentheses with a blank Coefficient label.
-        - 'R2' and 'Adj. R2' row-pairs: same treatment as a coefficient
-          — the time-series average (Adj.) R-squared, with its own
-          Newey-West t-stat/p-value/stars testing whether the average
-          is reliably different from zero, and the t-stat directly
-          below. Both are reported (SAS's macro carries R2 through
-          alongside Adj. R2 as a side effect of not dropping _RSQ_
-          before its GMM step; this does the same thing deliberately).
+          cell blank. Estimates are starred by p-value (***/**/* at 1%/5%/10%); 
+          t-stats sit directly below in parentheses with a blank Coefficient label.
+        - 'R2' and 'Adj. R2' row-pairs: same treatment as a coefficient — the
+          time-series average adjusted R-squared (3 decimals, since R2
+          values are typically small), with its own Newey-West t-stat/
+          p-value/stars testing whether the average Adj. R2 across
+          periods is reliably different from zero, and the t-stat
+          directly below.
         - 'n' row: time-series average number of observations per
           period's cross-sectional regression (rounded), NOT a total
-          across periods — matches Table 6.3's n row. No t-stat: "is
-          average sample size different from zero" isn't a meaningful
-          test, so n stays a single descriptive value.
+          across periods.
         - 'First period' / 'Last period' / 'T' rows: the first date,
           last date, and COUNT of periods actually used in step 1 for
           that spec (i.e. periods with >= min_obs valid observations).
@@ -139,9 +130,8 @@ def fama_macbeth(data, y, specs, spec_labels=None, date_col='date', lag=6, min_o
     # -------------------------------------------------------
     # Step 1: per-period cross-sectional OLS, run SEPARATELY for each
     # spec (so one spec's missing values don't reduce another spec's
-    # sample — matches Table 6.3's differing n across columns) and
-    # SEPARATELY for each subperiod (a period's cross-section is drawn
-    # only from rows sharing its subperiod value).
+    # sample) and SEPARATELY for each subperiod (a period's cross-section 
+    # is drawn only from rows sharing its subperiod value).
     # -------------------------------------------------------
     def run_spec(sub_data, xvars):
         need = min_obs if min_obs is not None else len(xvars) + 2
