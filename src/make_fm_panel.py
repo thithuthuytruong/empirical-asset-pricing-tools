@@ -24,8 +24,8 @@ far away it actually is — this guard is itself frequency-agnostic,
 since both helper functions only look at the SET of distinct period
 dates actually present, not at calendar arithmetic.
 
-This reproduces the "Step 1" input-prep pattern for Table 6.3-style
-regressions of future returns (r_{t+1}) on current characteristics —
+This reproduces the "Step 1" input-prep pattern for regressions of 
+future returns (r_{t+1}) on current characteristics —
 J=0, K=1 in single_sort/double_sort's terms, generalized to any
 frequency and any lookn.
 
@@ -51,7 +51,7 @@ Parameters:
                by, where a period is whatever gap indepvar's own dates
                define for a given entity (one month if indepvar is
                monthly, one year if indepvar is annual, etc.). lookn=1
-               reproduces Table 6.3's r_{t+1}.
+               reproduces r_{t+1}.
     groupby  : str — entity identifier column, shared by dsf and
                indepvar (default: 'symbol').
     date_col : str — date column, shared by dsf and indepvar
@@ -68,10 +68,9 @@ Output:
     as `data` to fama_macbeth, with y=f'{var}_next{lookn}'.
 
     NOTE: make_sure_continuous_dates and lookahead_expand must already
-    be defined in the same module (utils.py) — this function calls
-    them directly, unprefixed.
+    be defined in the same module (panel_helpers.py) — this function calls them directly, unprefixed.
 
-Example (monthly indepvar, matches Table 6.3):
+Example (monthly indepvar):
     fm_input = make_fm_panel(
         dsf      = tmp1,               # daily, exret already computed & exchange-filtered
         indepvar = indepvar_monthly,   # one row per (symbol, month), incl. 'subperiod'
